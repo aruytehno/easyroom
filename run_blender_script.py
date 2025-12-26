@@ -39,7 +39,7 @@ def run_blender_script(blender_path, script_path):
 if __name__ == "__main__":
     # Пути к файлам
     blender_exe = r"C:\blender-2.91.0-windows64\blender.exe"
-    test_script = r"C:\Users\simbiom\PycharmProjects\easyroom\test_scene.py"
+    test_script = r"C:\Users\simbiom\PycharmProjects\easyroom\isometric_projection.py"
 
     # Проверка существования файлов
     if not os.path.exists(blender_exe):
