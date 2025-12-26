@@ -2,6 +2,7 @@ import bpy
 import os
 import math
 from mathutils import Vector
+from datetime import datetime
 
 
 # Очистка сцены
@@ -223,17 +224,53 @@ def setup_camera():
     bpy.context.scene.camera = camera
 
 
-# Сохранение файла
-def save_blend_file(filepath):
-    bpy.ops.wm.save_as_mainfile(filepath=filepath)
-    print(f"Файл сохранен: {filepath}")
+# Сохранение файла в папку out
+def save_blend_file():
+    # Получаем путь к текущему скрипту
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    out_dir = os.path.join(script_dir, "out")
+
+    # Создаем папку out, если её нет
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+        print(f"Создана папка: {out_dir}")
+
+    # Генерируем имя файла с датой и временем
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    blend_filename = f"scene_{timestamp}.blend"
+    blend_path = os.path.join(out_dir, blend_filename)
+
+    bpy.ops.wm.save_as_mainfile(filepath=blend_path)
+    print(f"Файл Blender сохранен: {blend_path}")
+
+    return blend_path
 
 
-# Рендеринг изображения
-def render_image(filepath):
-    bpy.context.scene.render.filepath = filepath
+# Рендеринг изображения в папку out
+def render_image():
+    # Получаем путь к текущему скрипту
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    out_dir = os.path.join(script_dir, "out")
+
+    # Создаем папку out, если её нет
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+        print(f"Создана папка: {out_dir}")
+
+    # Генерируем имя файла с датой и временем
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    render_filename = f"render_{timestamp}.png"
+    render_path = os.path.join(out_dir, render_filename)
+
+    # Настройка пути рендера
+    bpy.context.scene.render.filepath = render_path
+
+    # Рендерим
+    print(f"Начинаю рендер...")
     bpy.ops.render.render(write_still=True)
-    print(f"Изображение сохранено: {filepath}")
+    print(f"Изображение сохранено: {render_path}")
+
+    return render_path
 
 
 # Основная функция
@@ -257,19 +294,17 @@ def main():
     setup_lighting()
     setup_camera()
 
-    # Пути для сохранения
-    blend_path = r"C:\Users\simbiom\PycharmProjects\easyroom\test_scene.blend"
-    render_path = r"C:\Users\simbiom\PycharmProjects\easyroom\render_output.png"
+    # Сохранение файла Blender в папку out
+    blend_path = save_blend_file()
 
-    # Сохранение файла Blender
-    save_blend_file(blend_path)
+    # Рендеринг изображения в папку out
+    render_path = render_image()
 
-    # Рендеринг изображения
-    render_image(render_path)
-
-    print("\nГотово! Сцена создана и отрендерена.")
+    print("\n" + "=" * 50)
+    print("Готово! Сцена создана и отрендерена.")
     print(f"Файл Blender: {blend_path}")
     print(f"Изображение: {render_path}")
+    print("=" * 50)
 
 
 # Запуск скрипта

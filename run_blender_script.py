@@ -2,7 +2,6 @@ import subprocess
 import sys
 import os
 
-
 def run_blender_script(blender_path, script_path):
     """
     Запускает скрипт в Blender из командной строки
@@ -37,7 +36,6 @@ def run_blender_script(blender_path, script_path):
         print(f"Ошибка выполнения: {e}")
         sys.exit(1)
 
-
 if __name__ == "__main__":
     # Пути к файлам
     blender_exe = r"C:\blender-2.91.0-windows64\blender.exe"
@@ -51,6 +49,12 @@ if __name__ == "__main__":
     if not os.path.exists(test_script):
         print(f"Ошибка: Скрипт не найден по пути: {test_script}")
         sys.exit(1)
+
+    # Создаем папку out, если её нет
+    out_dir = os.path.join(os.path.dirname(test_script), "out")
+    if not os.path.exists(out_dir):
+        os.makedirs(out_dir)
+        print(f"Создана папка: {out_dir}")
 
     # Запуск
     run_blender_script(blender_exe, test_script)
