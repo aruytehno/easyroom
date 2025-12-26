@@ -1,312 +1,174 @@
 import bpy
 import os
-import math
+import json
 from mathutils import Vector
 from datetime import datetime
 
 
-# Очистка сцены
+def load_config():
+    with open('config.json', 'r') as f:
+        return json.load(f)
+
+
 def clear_scene():
     bpy.ops.object.select_all(action='SELECT')
-    bpy.ops.object.delete(use_global=False)
+    bpy.ops.object.delete()
 
 
-# Настройка рендера на Eevee
-def setup_eevee_render():
+def setup_render(config):
     scene = bpy.context.scene
-    scene.render.engine = 'BLENDER_EEVEE'
+    render = config['render_settings']
 
-    # Настройки Eevee
-    scene.eevee.use_bloom = True
-    scene.eevee.bloom_intensity = 0.05
-    scene.eevee.use_ssr = True  # Screen Space Reflections
-    scene.eevee.use_ssr_refraction = True
-    scene.eevee.use_soft_shadows = True
+    scene.render.engine = render['engine']
+    scene.render.resolution_x = render['resolution_x']
+    scene.render.resolution_y = render['resolution_y']
 
-    # Для ноутбука - уменьшаем качество для скорости
-    scene.render.resolution_x = 1280
-    scene.render.resolution_y = 720
-    scene.render.resolution_percentage = 100
-
-    # Anti-aliasing
-    scene.eevee.taa_render_samples = 32
-    scene.eevee.taa_samples = 16
+    eevee = render['eevee_settings']
+    scene.eevee.use_bloom = eevee['use_bloom']
+    scene.eevee.bloom_intensity = eevee['bloom_intensity']
+    scene.eevee.use_ssr = eevee['use_ssr']
+    scene.eevee.use_ssr_refraction = eevee['use_ssr_refraction']
+    scene.eevee.use_soft_shadows = eevee['use_soft_shadows']
+    scene.eevee.taa_render_samples = eevee['taa_render_samples']
+    scene.eevee.taa_samples = eevee['taa_samples']
 
 
-# Создание простой комнаты
-def create_room():
-    # Создаем плоскость как пол
-    bpy.ops.mesh.primitive_plane_add(size=10, location=(0, 0, 0))
-    floor = bpy.context.object
-    floor.name = "Floor"
+def create_room(config):
+    room = config['room']
 
-    # Создаем стены
-    bpy.ops.mesh.primitive_plane_add(size=10, location=(0, -5, 5))
-    bpy.ops.transform.rotate(value=math.radians(90), orient_axis='X')
-    wall_back = bpy.context.object
-    wall_back.name = "Wall_Back"
+    bpy.ops.mesh.primitive_plane_add(size=room['floor']['size'],
+                                     location=room['floor']['location'])
+    bpy.context.object.name = "Floor"
 
-    bpy.ops.mesh.primitive_plane_add(size=10, location=(-5, 0, 5))
-    bpy.ops.transform.rotate(value=math.radians(90), orient_axis='Y')
-    wall_left = bpy.context.object
-    wall_left.name = "Wall_Left"
+    for wall in room['walls']:
+        bpy.ops.mesh.primitive_plane_add(size=10, location=wall['location'])
+        bpy.ops.transform.rotate(value=rad(wall['rotation'][0]), orient_axis='X')
+        bpy.ops.transform.rotate(value=rad(wall['rotation'][1]), orient_axis='Y')
+        bpy.ops.transform.rotate(value=rad(wall['rotation'][2]), orient_axis='Z')
+        bpy.context.object.name = wall['name']
 
 
-# Создание материалов
-def create_materials():
-    # Материал для пола
-    mat_floor = bpy.data.materials.new(name="Floor_Material")
-    mat_floor.use_nodes = True
-    nodes = mat_floor.node_tree.nodes
-    nodes.clear()
-
-    # Создаем простую нод-структуру
-    bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Base Color'].default_value = (0.8, 0.7, 0.6, 1)  # Светлое дерево
-    bsdf.inputs['Roughness'].default_value = 0.3
-
-    output = nodes.new(type='ShaderNodeOutputMaterial')
-
-    # Соединяем ноды
-    links = mat_floor.node_tree.links
-    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
-
-    # Применяем материал к полу
-    if "Floor" in bpy.data.objects:
-        bpy.data.objects["Floor"].data.materials.append(mat_floor)
-
-    # Материал для стен
-    mat_wall = bpy.data.materials.new(name="Wall_Material")
-    mat_wall.use_nodes = True
-    nodes = mat_wall.node_tree.nodes
+def create_material(name, color, metallic=0.0, roughness=0.5):
+    mat = bpy.data.materials.new(name=name)
+    mat.use_nodes = True
+    nodes = mat.node_tree.nodes
     nodes.clear()
 
     bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Base Color'].default_value = (0.9, 0.9, 0.9, 1)  # Белый
-    bsdf.inputs['Roughness'].default_value = 0.5
+    bsdf.inputs['Base Color'].default_value = color
+    bsdf.inputs['Metallic'].default_value = metallic
+    bsdf.inputs['Roughness'].default_value = roughness
 
     output = nodes.new(type='ShaderNodeOutputMaterial')
+    mat.node_tree.links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
 
-    links = mat_wall.node_tree.links
-    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
+    return mat
 
-    # Применяем к стенам
-    for obj_name in ["Wall_Back", "Wall_Left"]:
+
+def apply_materials(config):
+    room = config['room']
+    floor_mat = create_material("Floor_Material", room['floor']['color'], roughness=0.3)
+    wall_mat = create_material("Wall_Material", room['wall_color'], roughness=0.5)
+
+    for obj_name, mat in [("Floor", floor_mat), ("Wall_Back", wall_mat), ("Wall_Left", wall_mat)]:
         if obj_name in bpy.data.objects:
-            bpy.data.objects[obj_name].data.materials.append(mat_wall)
+            bpy.data.objects[obj_name].data.materials.append(mat)
 
 
-# Создание объектов
-def create_objects():
-    # Простой куб
-    bpy.ops.mesh.primitive_cube_add(size=2, location=(0, 0, 1))
-    cube = bpy.context.object
-    cube.name = "Main_Cube"
+def create_objects(config):
+    for obj_data in config['objects']:
+        if obj_data['type'] == 'cube':
+            bpy.ops.mesh.primitive_cube_add(size=obj_data['size'], location=obj_data['location'])
+        elif obj_data['type'] == 'sphere':
+            bpy.ops.mesh.primitive_uv_sphere_add(radius=obj_data['radius'], location=obj_data['location'])
+        elif obj_data['type'] == 'cylinder':
+            bpy.ops.mesh.primitive_cylinder_add(radius=obj_data['radius'], depth=obj_data['depth'],
+                                                location=obj_data['location'])
 
-    # Сфера
-    bpy.ops.mesh.primitive_uv_sphere_add(radius=1, location=(3, 0, 1))
-    sphere = bpy.context.object
-    sphere.name = "Sphere"
+        obj = bpy.context.object
+        obj.name = obj_data['name']
 
-    # Цилиндр
-    bpy.ops.mesh.primitive_cylinder_add(vertices=32, radius=0.8, depth=2, location=(-3, 0, 1))
-    cylinder = bpy.context.object
-    cylinder.name = "Cylinder"
-
-    # Материалы для объектов
-    create_object_materials()
-
-
-def create_object_materials():
-    # Красный материал для куба
-    mat_red = bpy.data.materials.new(name="Red_Material")
-    mat_red.use_nodes = True
-    nodes = mat_red.node_tree.nodes
-    nodes.clear()
-
-    bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Base Color'].default_value = (1, 0.2, 0.2, 1)
-    bsdf.inputs['Metallic'].default_value = 0.2
-    bsdf.inputs['Roughness'].default_value = 0.1
-
-    output = nodes.new(type='ShaderNodeOutputMaterial')
-    links = mat_red.node_tree.links
-    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
-
-    # Синий материал для сферы
-    mat_blue = bpy.data.materials.new(name="Blue_Material")
-    mat_blue.use_nodes = True
-    nodes = mat_blue.node_tree.nodes
-    nodes.clear()
-
-    bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Base Color'].default_value = (0.2, 0.4, 1, 1)
-    bsdf.inputs['Metallic'].default_value = 0.8
-    bsdf.inputs['Roughness'].default_value = 0.05
-
-    output = nodes.new(type='ShaderNodeOutputMaterial')
-    links = mat_blue.node_tree.links
-    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
-
-    # Зеленый материал для цилиндра
-    mat_green = bpy.data.materials.new(name="Green_Material")
-    mat_green.use_nodes = True
-    nodes = mat_green.node_tree.nodes
-    nodes.clear()
-
-    bsdf = nodes.new(type='ShaderNodeBsdfPrincipled')
-    bsdf.inputs['Base Color'].default_value = (0.2, 0.8, 0.3, 1)
-    bsdf.inputs['Roughness'].default_value = 0.3
-
-    output = nodes.new(type='ShaderNodeOutputMaterial')
-    links = mat_green.node_tree.links
-    links.new(bsdf.outputs['BSDF'], output.inputs['Surface'])
-
-    # Применяем материалы
-    if "Main_Cube" in bpy.data.objects:
-        bpy.data.objects["Main_Cube"].data.materials.append(mat_red)
-    if "Sphere" in bpy.data.objects:
-        bpy.data.objects["Sphere"].data.materials.append(mat_blue)
-    if "Cylinder" in bpy.data.objects:
-        bpy.data.objects["Cylinder"].data.materials.append(mat_green)
+        mat = create_material(
+            f"{obj_data['name']}_Material",
+            obj_data['color'],
+            obj_data.get('metallic', 0.0),
+            obj_data.get('roughness', 0.5)
+        )
+        obj.data.materials.append(mat)
 
 
-# Настройка освещения
-def setup_lighting():
-    # Удаляем стандартный свет
+def setup_lights(config):
     if "Light" in bpy.data.objects:
-        bpy.data.objects.remove(bpy.data.objects["Light"], do_unlink=True)
+        bpy.data.objects.remove(bpy.data.objects["Light"])
 
-    # Создаем основное освещение (Area light)
-    bpy.ops.object.light_add(type='AREA', location=(4, 4, 8))
-    area_light = bpy.context.object
-    area_light.name = "Main_Area_Light"
-    area_light.data.energy = 300
-    area_light.data.size = 4
-    area_light.rotation_euler = (math.radians(45), 0, math.radians(-45))
+    for light_data in config['lights']:
+        bpy.ops.object.light_add(type=light_data['type'], location=light_data['location'])
+        light = bpy.context.object
+        light.name = light_data['name']
+        light.data.energy = light_data['energy']
 
-    # Создаем заполняющий свет
-    bpy.ops.object.light_add(type='AREA', location=(-5, -5, 5))
-    fill_light = bpy.context.object
-    fill_light.name = "Fill_Light"
-    fill_light.data.energy = 100
-    fill_light.data.size = 3
-    fill_light.data.color = (0.9, 0.95, 1.0)  # Холодный свет
+        if light_data['type'] == 'AREA':
+            light.data.size = light_data['size']
 
-    # Создаем задний свет
-    bpy.ops.object.light_add(type='SPOT', location=(0, 5, 5))
-    back_light = bpy.context.object
-    back_light.name = "Back_Light"
-    back_light.data.energy = 150
-    back_light.data.spot_size = math.radians(45)
-    back_light.rotation_euler = (math.radians(90), 0, 0)
+        if light_data['type'] == 'SPOT':
+            light.data.spot_size = rad(light_data['spot_size'])
+
+        if 'color' in light_data:
+            light.data.color = light_data['color'][:3]
+
+        light.rotation_euler = tuple(rad(r) for r in light_data.get('rotation', [0, 0, 0]))
 
 
-# Настройка камеры
-def setup_camera():
-    # Удаляем стандартную камеру
+def setup_camera(config):
     if "Camera" in bpy.data.objects:
-        bpy.data.objects.remove(bpy.data.objects["Camera"], do_unlink=True)
+        bpy.data.objects.remove(bpy.data.objects["Camera"])
 
-    # Создаем новую камеру
-    bpy.ops.object.camera_add(location=(8, 8, 6))
+    cam_data = config['camera']
+    bpy.ops.object.camera_add(location=cam_data['location'])
     camera = bpy.context.object
     camera.name = "Main_Camera"
-
-    # Направляем камеру на сцену
-    camera.rotation_euler = (
-        math.radians(60),  # Pitch
-        0,  # Yaw
-        math.radians(135)  # Roll
-    )
-
-    # Устанавливаем активной камерой
+    camera.rotation_euler = tuple(rad(r) for r in cam_data['rotation'])
     bpy.context.scene.camera = camera
 
 
-# Сохранение файла в папку out
-def save_blend_file():
-    # Получаем путь к текущему скрипту
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    out_dir = os.path.join(script_dir, "out")
+def rad(degrees):
+    return degrees * 3.14159265 / 180
 
-    # Создаем папку out, если её нет
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-        print(f"Создана папка: {out_dir}")
 
-    # Генерируем имя файла с датой и временем
+def save_file(extension="blend"):
+    out_dir = os.path.join(os.path.dirname(__file__), "out")
+    os.makedirs(out_dir, exist_ok=True)
+
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    blend_filename = f"scene_{timestamp}.blend"
-    blend_path = os.path.join(out_dir, blend_filename)
+    filename = f"scene_{timestamp}.{extension}"
+    filepath = os.path.join(out_dir, filename)
 
-    bpy.ops.wm.save_as_mainfile(filepath=blend_path)
-    print(f"Файл Blender сохранен: {blend_path}")
+    if extension == "blend":
+        bpy.ops.wm.save_as_mainfile(filepath=filepath)
+    else:
+        bpy.context.scene.render.filepath = filepath
+        bpy.ops.render.render(write_still=True)
 
-    return blend_path
-
-
-# Рендеринг изображения в папку out
-def render_image():
-    # Получаем путь к текущему скрипту
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    out_dir = os.path.join(script_dir, "out")
-
-    # Создаем папку out, если её нет
-    if not os.path.exists(out_dir):
-        os.makedirs(out_dir)
-        print(f"Создана папка: {out_dir}")
-
-    # Генерируем имя файла с датой и временем
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    render_filename = f"render_{timestamp}.png"
-    render_path = os.path.join(out_dir, render_filename)
-
-    # Настройка пути рендера
-    bpy.context.scene.render.filepath = render_path
-
-    # Рендерим
-    print(f"Начинаю рендер...")
-    bpy.ops.render.render(write_still=True)
-    print(f"Изображение сохранено: {render_path}")
-
-    return render_path
+    return filepath
 
 
-# Основная функция
 def main():
-    print("=" * 50)
-    print("Создание тестовой сцены для Blender + Eevee")
-    print("=" * 50)
+    config = load_config()
 
-    # Очистка сцены
     clear_scene()
+    setup_render(config)
+    create_room(config)
+    apply_materials(config)
+    create_objects(config)
+    setup_lights(config)
+    setup_camera(config)
 
-    # Настройка рендера
-    setup_eevee_render()
+    blend_path = save_file("blend")
+    render_path = save_file("png")
 
-    # Создание объектов
-    create_room()
-    create_materials()
-    create_objects()
-
-    # Настройка освещения и камеры
-    setup_lighting()
-    setup_camera()
-
-    # Сохранение файла Blender в папку out
-    blend_path = save_blend_file()
-
-    # Рендеринг изображения в папку out
-    render_path = render_image()
-
-    print("\n" + "=" * 50)
-    print("Готово! Сцена создана и отрендерена.")
-    print(f"Файл Blender: {blend_path}")
-    print(f"Изображение: {render_path}")
-    print("=" * 50)
+    print(f"Blender file: {blend_path}")
+    print(f"Render: {render_path}")
 
 
-# Запуск скрипта
 if __name__ == "__main__":
     main()

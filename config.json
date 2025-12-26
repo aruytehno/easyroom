@@ -1,0 +1,95 @@
+{
+  "render_settings": {
+    "engine": "BLENDER_EEVEE",
+    "resolution_x": 1280,
+    "resolution_y": 720,
+    "eevee_settings": {
+      "use_bloom": true,
+      "bloom_intensity": 0.05,
+      "use_ssr": true,
+      "use_ssr_refraction": true,
+      "use_soft_shadows": true,
+      "taa_render_samples": 32,
+      "taa_samples": 16
+    }
+  },
+  "room": {
+    "floor": {
+      "size": 10,
+      "location": [0, 0, 0],
+      "color": [0.8, 0.7, 0.6, 1]
+    },
+    "walls": [
+      {
+        "name": "Wall_Back",
+        "location": [0, -5, 5],
+        "rotation": [90, 0, 0]
+      },
+      {
+        "name": "Wall_Left",
+        "location": [-5, 0, 5],
+        "rotation": [0, 90, 0]
+      }
+    ],
+    "wall_color": [0.9, 0.9, 0.9, 1]
+  },
+  "objects": [
+    {
+      "type": "cube",
+      "name": "Main_Cube",
+      "size": 2,
+      "location": [0, 0, 1],
+      "color": [1, 0.2, 0.2, 1],
+      "metallic": 0.2,
+      "roughness": 0.1
+    },
+    {
+      "type": "sphere",
+      "name": "Sphere",
+      "radius": 1,
+      "location": [3, 0, 1],
+      "color": [0.2, 0.4, 1, 1],
+      "metallic": 0.8,
+      "roughness": 0.05
+    },
+    {
+      "type": "cylinder",
+      "name": "Cylinder",
+      "radius": 0.8,
+      "depth": 2,
+      "location": [-3, 0, 1],
+      "color": [0.2, 0.8, 0.3, 1],
+      "roughness": 0.3
+    }
+  ],
+  "lights": [
+    {
+      "type": "AREA",
+      "name": "Main_Area_Light",
+      "location": [4, 4, 8],
+      "energy": 300,
+      "size": 4,
+      "rotation": [45, 0, -45]
+    },
+    {
+      "type": "AREA",
+      "name": "Fill_Light",
+      "location": [-5, -5, 5],
+      "energy": 100,
+      "size": 3,
+      "color": [0.9, 0.95, 1.0]
+    },
+    {
+      "type": "SPOT",
+      "name": "Back_Light",
+      "location": [0, 5, 5],
+      "energy": 150,
+      "spot_size": 45,
+      "rotation": [90, 0, 0]
+    }
+  ],
+  "camera": {
+    "location": [8, 8, 6],
+    "rotation": [60, 0, 135]
+  }
+}
