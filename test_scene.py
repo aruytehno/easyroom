@@ -209,7 +209,7 @@ def setup_camera():
         bpy.data.objects.remove(bpy.data.objects["Camera"], do_unlink=True)
 
     # Создаем новую камеру
-    bpy.ops.object.camera_add(location=(8, -8, 6))
+    bpy.ops.object.camera_add(location=(8, 8, 6))
     camera = bpy.context.object
     camera.name = "Main_Camera"
 
@@ -217,7 +217,7 @@ def setup_camera():
     camera.rotation_euler = (
         math.radians(60),  # Pitch
         0,  # Yaw
-        math.radians(45)  # Roll
+        math.radians(135)  # Roll
     )
 
     # Устанавливаем активной камерой
